@@ -1,0 +1,16 @@
+# What this catalog decides about gateways, on top of the values of the chart. The
+# networks of the cluster are not here: they differ from one cluster to another and
+# the operator refuses to start without them. Whoever installs the package gives them,
+# see ../../../README.md ("Install").
+config:
+  engine:
+    name: barerouter
+    # The images of the appliance the engine of the operator can drive, each pinned by
+    # digest. The operator of this chart carries the engine of barerouter v0.1.0,
+    # which seeds and drives both.
+    versions:
+      - name: "0.1.1"
+        image: ghcr.io/aenix-io/barerouter/kubevirt-disk:0.1.1@sha256:9c88d087d2754adb25ae5e719a91c3886e571b5279b0d9715296889fa8456462
+      - name: "0.1.0"
+        image: ghcr.io/aenix-io/barerouter/kubevirt-disk:0.1.0@sha256:3ea95f85e723b7197410838f4ee4385f9ec23a9ab5b7df012b6502d5dfeafc40
+    latest: "0.1.1"
