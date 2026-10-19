@@ -25,7 +25,7 @@ kubectl get package cozystack.cozystack-platform \
   --output jsonpath='{.spec.components.platform.values.networking}'
 ```
 
-Write them in a `Package` and create it. `cozypkg add` asks for no values, so the package is created from the manifest:
+`cozypkg tap` has already made an empty `Package` named `aenix.site-router`, and the release of the operator fails on its schema until the networks are in it. `cozypkg add` asks for no values, so write them in the manifest and apply it over that `Package` (`kubectl` warns about the missing `last-applied-configuration` annotation, which is harmless):
 
 ```yaml
 # package.yaml
@@ -58,6 +58,8 @@ A network that a tenant asks for and that overlaps one of these is refused by th
 
 The `SiteRouter` application appears in the dashboard catalog. A tenant gives it the address of the remote end (`peer.address`), the networks behind it (`remoteCIDRs`), and optionally static routes, BGP, and the size of the gateway. The parameters are in [packages/apps/site-router](packages/apps/site-router/README.md). Once the gateway is up, which takes some minutes while its disk is imported, the dashboard shows the address of the tunnel and the pre-shared key to configure the remote end with.
 
+The operator has a resource of the same name. `kubectl get siterouters` shows the application, which is ready when its objects are applied; the state of the gateway, its tunnel and its routes is on `siterouters.siterouter.aenix.io`.
+
 ## Layout
 
 ```text
@@ -84,6 +86,7 @@ A release is a tag `site-router/vX.Y.Z` of this repository. The workflow validat
 
 ## Not done yet
 
-- The package has not been installed on a cluster. It validates and renders, and nothing more is claimed.
+- The tunnel has not been brought up against a real remote end. The package was tapped and installed on a three-node Cozystack `v1.7.0-rc.1` cluster (`isp-full`), from an artifact pushed to ttl.sh rather than ghcr. A `SiteRouter` in the root tenant had its gateway ready in about three minutes, and a pod started afterwards in that tenant got the routes to the remote networks through the gateway. The tunnel itself stayed down, as the remote end of that test does not exist.
+- Tapping from `ghcr.io` has not been done: the first tag has to be published for that.
 - The release of the application is not tied to the state of the gateway: it is ready when its objects are applied, and the dashboard shows the conditions of the gateway. Tying it to the `Ready` condition needs the timeouts of the release to be set for a gateway that takes minutes to come up.
 - Only the connector for kube-ovn is here. The variant for another network is another variant of the `PackageSource`.
