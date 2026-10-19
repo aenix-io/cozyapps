@@ -1,0 +1,8 @@
+# The values that whoever installs the package gives the operator, here for a cluster
+# of the shape of the example in the README. The networks are made up for the tests.
+config:
+  managementCIDR: 10.244.0.0/16
+  clusterNetworks:
+    podCIDR: 10.244.0.0/16
+    serviceCIDR: 10.96.0.0/16
+    joinCIDR: 100.64.0.0/16
