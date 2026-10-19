@@ -1,0 +1,40 @@
+apiVersion: siterouter.aenix.io/v1alpha1
+kind: SiteRouter
+metadata:
+  name: {{ include "site-router.name" . }}
+  labels:
+    app.kubernetes.io/name: site-router
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  peer:
+    {{- with .Values.peer.address }}
+    address: {{ . | quote }}
+    {{- else }}
+    {}
+    {{- end }}
+  {{- with .Values.remoteCIDRs }}
+  remoteCIDRs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.staticRoutes }}
+  staticRoutes:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.bgp.enabled }}
+  bgp:
+    enabled: true
+    {{- with .Values.bgp.localASN }}
+    localASN: {{ . }}
+    {{- end }}
+    {{- with .Values.bgp.neighbors }}
+    neighbors:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- end }}
+  resources:
+    cpu: {{ .Values.resources.cpu }}
+    memory: {{ .Values.resources.memory | quote }}
+  {{- with .Values.storageClass }}
+  storageClass: {{ . | quote }}
+  {{- end }}

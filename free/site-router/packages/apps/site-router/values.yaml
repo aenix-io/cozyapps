@@ -1,0 +1,47 @@
+##
+## @section Common parameters
+##
+
+## @typedef {struct} Peer - The remote end of the tunnel.
+## @field {string} address - IP address or DNS name of the remote end. Leave it empty while it is not known, for example when the remote side is to call first.
+
+## @param {Peer} peer - The remote end of the tunnel.
+peer:
+  address: ""
+
+## @param {[]string} remoteCIDRs - IPv4 networks behind the remote end. Traffic to them is routed to the gateway, and traffic from them is let through to the workloads of the tenant. A network that no remote site can have, or that overlaps a network of the cluster, is refused.
+remoteCIDRs: []
+
+## @typedef {struct} StaticRoute - A route inside the gateway.
+## @field {string} destination - The network the route leads to, an IPv4 CIDR.
+## @field {string} nextHop - Where traffic for the destination is sent, an IPv4 address.
+
+## @param {[]StaticRoute} staticRoutes - Routes inside the gateway.
+staticRoutes: []
+
+## @typedef {struct} BGPNeighbor - A BGP peer of the gateway.
+## @field {string} address - The IPv4 address of the peer.
+## @field {int} remoteASN - The autonomous system number of the peer.
+
+## @typedef {struct} BGP - BGP between the gateway and the remote site.
+## @field {bool} enabled - Turns BGP on.
+## @field {int} [localASN] - The autonomous system number of the gateway. Required when BGP is on.
+## @field {[]BGPNeighbor} [neighbors] - The BGP peers of the gateway.
+
+## @param {BGP} bgp - BGP between the gateway and the remote site.
+bgp:
+  enabled: false
+
+## @typedef {struct} Resources - CPU and memory of the gateway VM.
+## @field {int} cpu - The number of virtual CPUs.
+## @field {quantity} memory - The amount of memory.
+
+## @param {Resources} resources - CPU and memory of the gateway VM.
+resources:
+  cpu: 2
+  memory: 2Gi
+
+## @param {string} storageClass - StorageClass of the gateway disk. When empty, the default class of the cluster is used.
+## @immutable
+## @x-cozystack-options {source: storageclass}
+storageClass: ""
