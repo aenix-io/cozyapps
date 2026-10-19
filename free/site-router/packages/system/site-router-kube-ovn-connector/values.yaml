@@ -1,0 +1,4 @@
+# The image of the connector, released with the operator under the same version.
+image:
+  repository: ghcr.io/aenix-io/site-router-kube-ovn-connector
+  tag: "0.1.1"
