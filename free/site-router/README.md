@@ -288,7 +288,7 @@ Changing the values of the application changes the gateway. `storageClass` is th
 
 ## Configure the remote end
 
-The gateway holds one IKEv2 tunnel with a pre-shared key. The settings below are fixed by the engine, and the application does not change them. They come from the code of the engine and the appliance, and the tunnel has not been brought up against a real device yet (see [what has been checked](#what-has-been-checked-and-what-has-not)).
+The gateway holds one IKEv2 tunnel with a pre-shared key. The settings below are fixed by the engine, and the application does not change them. They come from the code of the engine and the appliance, and the tunnel was brought up against a second VM of the same appliance as the remote device. A device of another vendor has not been tried (see [what has been checked](#what-has-been-checked-and-what-has-not)).
 
 | Setting | Value |
 | --- | --- |
@@ -303,7 +303,7 @@ The gateway holds one IKEv2 tunnel with a pre-shared key. The settings below are
 | ESP lifetime | 3600 seconds. |
 | Encapsulation | ESP in UDP is forced, so the device has to accept NAT traversal on ports 500 and 4500. |
 | Mode | Tunnel. |
-| Traffic selectors | On the gateway side `0.0.0.0/0`, and on the remote side each entry of `remoteCIDRs`, one child SA for each. So on the remote device the local selectors are the networks listed in `remoteCIDRs` and the remote selector is `0.0.0.0/0`. |
+| Traffic selectors | On the gateway side `0.0.0.0/0`, and on the remote side each entry of `remoteCIDRs`, one child SA for each. So on the remote device the local selector is a network of `remoteCIDRs` and the remote selector is `0.0.0.0/0`. Make one tunnel (one child SA) on the remote device for each network. A device that offers two networks in one tunnel gets the first one only: in the test the second network had no SA and lost all its traffic. |
 
 When `peer.address` is empty the gateway does not initiate, and waits for the remote device to call. The tunnel Service has to be reachable from the remote device on UDP 500 and 4500, which means the load balancer address has to be routable from there, and a firewall in between has to let those ports through.
 
@@ -332,6 +332,8 @@ The logs of the operator are `kubectl logs --namespace cozy-site-router deployme
 | The event `ConfigureFailed` with `i/o timeout` on port 443, once, at the start. | The guest was still booting. It goes away by itself. If it stays, the management API is not reachable from the operator: check that `managementCIDR` contains the pod network the operator is on. |
 | `RoutesProgrammed=False`, `PendingWorkloads`. | The pods listed were created before the gateway and have no routes. Restart them. |
 | `TunnelEstablished=False`, `tunnel-0=Down`. | The remote end has not completed the handshake: the remote device is not configured or not reachable on UDP 500 and 4500, the key or the identities differ, or the proposals do not match. Look at the log of the remote device. |
+| The tunnel is up, and one of two remote networks has no traffic. | The remote device offered both networks in one tunnel. Give it a tunnel for each network. |
+| The remote end is a pod of the same cluster, and the handshake never completes. | The baseline of a tenant lets a pod send to `world` and to the namespaces of its own tenant only, so the gateway cannot answer a pod of another namespace, nor can that pod reach the gateway. `cilium-dbg monitor --type drop` on the node shows `Policy denied`. This is a test setup, a remote site outside the cluster does not meet it. |
 | The application shows `Ready` and nothing works. | That is the release being applied, not the gateway. Read the conditions of `siterouters.siterouter.aenix.io`. |
 
 ## Upgrade and remove
@@ -383,11 +385,13 @@ Checked on a three-node Cozystack `v1.7.0-rc.1` (`isp-full`, kube-ovn, MetalLB, 
 - a gateway created as a tenant admin, ready in about two and a half minutes, the tunnel Service with a MetalLB address, the key visible to the tenant and the other Secrets not,
 - a pod created afterwards in the tenant got the routes to both remote networks through the gateway,
 - deleting the application, removing the catalog with `untap`, and installing it again over the CRDs that were left,
-- creating a gateway under a name that had been used, which was refused until the old pre-shared key Secret was deleted by hand (see [Remove an application](#remove-an-application)).
+- creating a gateway under a name that had been used, which was refused until the old pre-shared key Secret was deleted by hand (see [Remove an application](#remove-an-application)),
+- a real tunnel and real traffic. The remote device was a second VM of the same appliance, in another namespace, standing for two remote networks. The tenant admin set `peer.address` in the application and read the address and the key as a tenant, and the remote VM was given the same two facts. The tunnel came up (IKEv2, AES-256, SHA-256, group 14, ESP in UDP) and the operator went to `Ready` once the pod that was older than the routes was restarted. Both ways, for both remote networks: ping at about 1 ms with no loss, the source of the remote network kept as it was (the backend saw `192.0.2.1` and `198.51.100.7`), the path MTU 1326 found and reported by the gateway. Throughput: a stream from a tenant pod to the remote side 933 Mbit/s (two pods of the tenant on the same network reach 1.58 Gbit/s), UDP from the remote side 300 Mbit/s with 0.03% loss. TCP from the remote VM was 100 Mbit/s with the tunnel and 95 Mbit/s to a pod with no tunnel at all, so that number is the limit of the test VM and not of the gateway.
 
 Not checked:
 
-- The tunnel against a real remote device. In the test the remote end did not exist, so the tunnel stayed `Down`. The settings in [Configure the remote end](#configure-the-remote-end) come from the code, not from an interoperability test.
+- A remote device of another vendor. The tunnel was tested against the same appliance, which is the same IPsec stack, so a proposal or identity quirk of another device would not show.
+- A remote site that is outside the cluster. The remote VM was a pod of the same cluster, and the gateway reached it only after two policies were added to let the gateway and the remote namespace talk, which the baseline of a tenant does not allow. A real remote site is `world` and needs neither.
 - BGP and static routes on a running gateway. The configuration is accepted and applied, and what the gateway then does with it has not been observed.
 - The dashboard. The definition is there, and the pages have not been looked at.
 - Tap from `ghcr.io`, and the publishing job of the workflow, which has not run yet.
@@ -399,10 +403,11 @@ Known limits:
 - The release of the application is ready when its objects are applied. The platform does not tie it to the `Ready` condition of the gateway. Doing that needs timeouts of the release set for a gateway that takes minutes to come up, which has not been measured.
 - The application cannot choose the IKE or ESP proposals, the lifetimes, or the identities.
 - One tunnel and one remote device for each gateway.
+- The gateway sends ICMP redirects to a pod that sends to a remote network (`Redirect Host (New nexthop: <remote address>)` in the output of `ping`, counted as errors). They did no harm in the test: no packet was lost and the routes of the pod did not change. Why the pod ignored them was not looked into.
 
 ## Releases and versions
 
-The unit of a release is the catalog, not an application. `free/site-router` is one catalog, and everything in its `packages/` (the operator, the connector, the application and its definition) is one artifact with one version. An administrator taps the catalog and gets all of it, and there is no way to take the application without the operator. A catalog could hold more than one application, as more `PackageSource` files, and they would still share the version of the catalog.
+The unit of a release is the catalog, as the design of the marketplace has it: a catalog is one OCI artifact that bundles all its applications, and the artifact carries the version. `free/site-router` is a catalog that holds one application at present, so a release of the catalog is a release of this application. Everything in its `packages/` (the operator, the connector, the application and its definition) is one artifact with one version. An administrator taps the catalog and gets all of it, and there is no way to take the application without the operator. A catalog could hold more applications, as more `PackageSource` files, and they would share its version. The name and the place of the directory are provisional: moving it changes the reference that is tapped and the tag prefix, and does not change the name `aenix.site-router` the cluster sees.
 
 - A release is a tag `site-router/vMAJOR.MINOR.PATCH` (a suffix such as `-rc.1` is allowed), and the artifact is `ghcr.io/aenix-io/cozyapps/site-router:vMAJOR.MINOR.PATCH`. Another catalog in the repository has its own directory, its own workflow and its own tag prefix, so tags do not collide and the catalogs are released independently.
 - The version of the catalog is its own. It does not follow the version of the operator, which is 0.1.1 at present, or the version of the application chart, which is 0.1.0. It changes whenever anything in `packages/` changes: a patch for a fix in a chart or a text, a minor for a new version of the operator or new values, a major for a change that needs an administrator to act, such as a renamed value.
