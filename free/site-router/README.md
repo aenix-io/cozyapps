@@ -403,6 +403,7 @@ Known limits:
 - The release of the application is ready when its objects are applied. The platform does not tie it to the `Ready` condition of the gateway. Doing that needs timeouts of the release set for a gateway that takes minutes to come up, which has not been measured.
 - The application cannot choose the IKE or ESP proposals, the lifetimes, or the identities.
 - One tunnel and one remote device for each gateway.
+- Two tenants of one cluster cannot be joined through their external addresses. A pod that sends to the external address of a service of another tenant has the address translated to the pod behind it, by Cilium on the node of the sender, and the baseline policies of the tenants drop the packet (checked with a child tenant on Cozystack `v1.7.0-rc.1`, and it holds for the cluster IP and the pod address too). The remote site has to be outside the cluster.
 - The gateway sends ICMP redirects to a pod that sends to a remote network (`Redirect Host (New nexthop: <remote address>)` in the output of `ping`, counted as errors). They did no harm in the test: no packet was lost and the routes of the pod did not change. Why the pod ignored them was not looked into.
 
 ## Releases and versions
