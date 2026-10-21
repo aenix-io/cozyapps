@@ -2,10 +2,10 @@
 
 A routed site-to-site IPsec gateway for the tenants of [Cozystack](https://cozystack.io). A tenant creates a `SiteRouter` application, gives it the address of the remote end and the networks behind it, and gets a gateway: a virtual machine in the tenant namespace that holds an IPsec tunnel to the remote site. The workloads of the tenant reach the remote networks through that gateway, and the remote networks reach the workloads of the tenant through it.
 
-This document is the whole guide. It says what the catalog is, how it works inside Cozystack, how an administrator installs it, how a tenant uses it, how the remote end is configured, what to look at when something is wrong, how it is upgraded and removed, and how it is released.
+This document is the whole guide. It says what this application is, how it works inside Cozystack, how an administrator installs it, how a tenant uses it, how the remote end is configured, what to look at when something is wrong, how it is upgraded and removed, and how it is released.
 
 - [What it is](#what-it-is)
-- [What is in the catalog](#what-is-in-the-catalog)
+- [What is in the application](#what-is-in-the-application)
 - [How it works in Cozystack](#how-it-works-in-cozystack)
 - [Requirements](#requirements)
 - [Install](#install)
@@ -15,7 +15,7 @@ This document is the whole guide. It says what the catalog is, how it works insi
 - [Upgrade and remove](#upgrade-and-remove)
 - [What has been checked and what has not](#what-has-been-checked-and-what-has-not)
 - [Releases and versions](#releases-and-versions)
-- [Working on the catalog](#working-on-the-catalog)
+- [Working on the application](#working-on-the-application)
 
 ## What it is
 
@@ -35,14 +35,14 @@ The gateway is run by [site-router-operator](https://github.com/aenix-io/site-ro
 
 Traffic that a workload sends to a remote network goes to the gateway, is encrypted there, and leaves through the tunnel. Traffic that comes back, and traffic that the remote side starts, is decrypted in the gateway and admitted to the pods of the tenant namespace only from the remote networks that were asked for, and to nothing else.
 
-## What is in the catalog
+## What is in the application
 
-A catalog is one directory that is released as one unit (see [Releases and versions](#releases-and-versions)). `packages/` is what a cluster receives:
+This directory is one application of the `free` catalog of this repository. The catalog, with every application in it, is released as one OCI artifact (see [Releases and versions](#releases-and-versions)). The `packages/` of this directory is its part of that artifact, and it is what a cluster receives for this application:
 
 | Directory under `packages/` | What it is |
 | --- | --- |
 | `core/platform/sources/site-router.yaml` | The `PackageSource` named `aenix.site-router`. It says what to install, in what order, and what has to exist first. |
-| `system/site-router-operator` | The Helm chart of the operator, as released upstream (0.1.1), with the choices of this catalog in `values-cozystack.yaml`: the engine and the images of the appliance, by digest. |
+| `system/site-router-operator` | The Helm chart of the operator, as released upstream (0.1.1), with the choices of this application in `values-cozystack.yaml`: the engine and the images of the appliance, by digest. |
 | `system/site-router-kube-ovn-connector` | The connector that makes kube-ovn route the remote networks to the gateway. A chart made from the deploy files of the operator release of the same version. |
 | `apps/site-router` | The chart of the application. It turns the values of the tenant into a `SiteRouter`, a `WorkloadMonitor` and the access rules for the dashboard. |
 | `system/site-router-rd` | The `ApplicationDefinition` that registers the application in the platform, and the role that lets tenant admins write it. |
@@ -78,7 +78,7 @@ The operator and the connector never touch the network of the cluster in any oth
 
 ### Who can do what
 
-- A tenant admin creates, changes and deletes `SiteRouter` applications. The platform lists by name the kinds a tenant admin may write, so this catalog adds a `ClusterRole`, `cozy:site-router:admin`, aggregated into the admin role.
+- A tenant admin creates, changes and deletes `SiteRouter` applications. The platform lists by name the kinds a tenant admin may write, so this application adds a `ClusterRole`, `cozy:site-router:admin`, aggregated into the admin role.
 - Every role from view up reads the applications and the Services of the tenant, so the address of the tunnel is visible to all of them.
 - The pre-shared key is a `TenantSecret` named `site-router-<name>-psk`, and `use`, `admin` and `super-admin` read it. `view` does not. The other Secrets of the gateway (the key of the management API and the seed) are not shown to the tenant.
 - The tenant does not write the `SiteRouter` of the operator, only the application. The `Role` the application chart makes gives `use` and above read access to that one resource, for the dashboard. This matters because the resource has two fields that reach further than a gateway does (`peer.auth.secretRef` and the annotation `siterouter.aenix.io/upgrade-to`), and the application exposes neither of them.
@@ -87,7 +87,7 @@ The operator and the connector never touch the network of the cluster in any oth
 
 - Cozystack with the marketplace, which is the release 1.7 line. Use `cozypkg` of that release (`v1.7.0` or a release candidate from `v1.7.0-rc.1`).
 - The platform packages `cozystack.networking` (kube-ovn and Cilium), `cozystack.kubevirt`, `cozystack.kubevirt-cdi` and `cozystack.cozystack-engine`. A stock Cozystack install (the `isp-full` variant) has them. `isp-slim` has no kube-ovn and no KubeVirt, so it cannot run this catalog.
-- kube-ovn as the network of the pods, with Cilium alongside it, which is how Cozystack runs. The connector in this catalog is the one for kube-ovn, and the gateways are isolated with Cilium policies. The namespace of the tenant has to let the pods that send through the gateway reach it, and let the gateway out to the world. The baseline policies of a Cozystack tenant namespace do both.
+- kube-ovn as the network of the pods, with Cilium alongside it, which is how Cozystack runs. The connector of this application is the one for kube-ovn, and the gateways are isolated with Cilium policies. The namespace of the tenant has to let the pods that send through the gateway reach it, and let the gateway out to the world. The baseline policies of a Cozystack tenant namespace do both.
 - A load balancer for Services of type LoadBalancer, which the gateway publishes its tunnel on (MetalLB on a stock install), with free addresses in the pool, one per gateway.
 - A default storage class, or one named in the application: the boot disk of a gateway is 12 GiB.
 - x86_64 nodes. The appliance image is for amd64 only.
@@ -101,10 +101,10 @@ This is done once per cluster by the administrator.
 ### 1. Connect the catalog
 
 ```bash
-cozypkg tap oci://ghcr.io/aenix-io/cozyapps/site-router:v0.1.0
+cozypkg tap oci://ghcr.io/aenix-io/cozyapps/free:v0.1.0
 ```
 
-Tapping needs cluster-admin, and it can be run again safely. Check it:
+`free` is the catalog of the applications of this repository that are open source throughout, and tap registers every application that is in it, so each of them shows in the catalog of the platform and is installed with its default variant. An application that needs values, as this one needs the networks of the cluster, waits for them. Tapping needs cluster-admin, and it can be run again safely. Check it:
 
 ```bash
 cozypkg list
@@ -323,7 +323,7 @@ The logs of the operator are `kubectl logs --namespace cozy-site-router deployme
 | --- | --- |
 | The release `site-router-operator` fails with `values don't meet the specifications of the schema`. | The networks are not in the `Package` yet. Do [step 3](#3-give-them-to-the-package). |
 | `cozypkg tap` times out pulling the artifact. | The registry was slow. Run it again, tapping is idempotent. |
-| The `Package` has `dependencies` that are not ready. | A platform package that this catalog needs is not installed or not ready: `cozystack.networking`, `cozystack.kubevirt`, `cozystack.kubevirt-cdi`, `cozystack.cozystack-engine`. |
+| The `Package` has `dependencies` that are not ready. | A platform package that this application needs is not installed or not ready: `cozystack.networking`, `cozystack.kubevirt`, `cozystack.kubevirt-cdi`, `cozystack.cozystack-engine`. |
 | `siterouters` is not in `kubectl api-resources` right after the install. | The API server shows new kinds after a short while. Check that `site-router-rd` is `True`. |
 | A tenant admin gets `forbidden` creating a `SiteRouter`. | The role `cozy:site-router:admin` is made by `site-router-rd`. Check that release. |
 | `Validated=False`. | The message names the field. A remote network that overlaps a network of the cluster, or that is a kind no remote site can have, is the usual cause. |
@@ -352,7 +352,7 @@ kubectl delete secret site-router-<name>-psk --namespace <namespace>
 
 A new name does not meet the problem.
 
-### Remove the catalog
+### Remove the application
 
 Delete every `SiteRouter` application first. An application left when the operator is removed has nothing to clean it up.
 
@@ -360,7 +360,7 @@ Delete every `SiteRouter` application first. An application left when the operat
 cozypkg untap aenix.site-router --yes
 ```
 
-removes the `PackageSource`, the `OCIRepository` and the registration `Package`, and with them the three releases and the `ApplicationDefinition`. It leaves what the operator chart marks to keep:
+removes the `PackageSource` and the registration `Package` of this application, and with them the three releases and the `ApplicationDefinition`. The `OCIRepository` of the catalog goes with the last application that is untapped, and the other applications of the catalog are not touched. It leaves what the operator chart marks to keep:
 
 - the CRDs `siterouters.siterouter.aenix.io` and `forwarders.siterouter.aenix.io`, because deleting a CRD deletes every object of it, and with it every gateway,
 - the namespaces `cozy-site-router` and `site-router-kube-ovn-connector`.
@@ -376,7 +376,7 @@ Tap and the install can be done again over what is left. That was checked: the t
 
 ### Move to a new version
 
-A new version of the catalog is a new tag. Run `cozypkg tap` with it, the same way as the first time (`--tag` overrides the tag of the reference). The upgrade is not checked yet. What the new version changes is in the release notes of its tag, and a new version of the operator replaces the CRDs together with the chart, since the chart carries them as templates.
+A new version is a new tag of the catalog, and it brings the new version of every application in it. Run `cozypkg tap` with it, the same way as the first time (`--tag` overrides the tag of the reference). The upgrade is not checked yet. What the new version changes is in the release notes of its tag, and a new version of the operator replaces the CRDs together with the chart, since the chart carries them as templates.
 
 ## What has been checked and what has not
 
@@ -386,7 +386,7 @@ Checked on a three-node Cozystack `v1.7.0-rc.1` (`isp-full`, kube-ovn, MetalLB, 
 - the install over the empty package of tap, the three releases, the application kind in the API,
 - a gateway created as a tenant admin, ready in about two and a half minutes, the tunnel Service with a MetalLB address, the key visible to the tenant and the other Secrets not,
 - a pod created afterwards in the tenant got the routes to both remote networks through the gateway,
-- deleting the application, removing the catalog with `untap`, and installing it again over the CRDs that were left,
+- deleting the application, removing the application with `untap`, and installing it again over the CRDs that were left,
 - creating a gateway under a name that had been used, which was refused until the old pre-shared key Secret was deleted by hand (see [Remove an application](#remove-an-application)),
 - a tunnel and traffic between two appliances, both inside the cluster. The remote device was a second VM of the same appliance, in another namespace, standing for two remote networks. The tenant admin set `peer.address` in the application and read the address and the key as a tenant, and the remote VM was given the same two facts. The tunnel came up (IKEv2, AES-256, SHA-256, group 14, ESP in UDP) and the operator went to `Ready` once the pod that was older than the routes was restarted. Both ways, for both remote networks: ping at about 1 ms with no loss, the source of the remote network kept as it was (the backend saw `192.0.2.1` and `198.51.100.7`), the path MTU 1326 found and reported by the gateway. Throughput: a stream from a tenant pod to the remote side 933 Mbit/s (two pods of the tenant on the same network reach 1.58 Gbit/s), UDP from the remote side 300 Mbit/s with 0.03% loss. TCP from the remote VM was 100 Mbit/s with the tunnel and 95 Mbit/s to a pod with no tunnel at all, so that number is the limit of the test VM and not of the gateway. That test stayed inside the cluster: the packets of the tunnel were rewritten to the pod by Cilium before they left the node, the traffic was admitted by the `cluster` rule of the tenant baseline, and the gateway reached the remote side only after two policies were added to let the gateway and the remote namespace talk. It shows the configuration, the routes and the filter, and nothing of the path of a peer outside,
 - a tunnel and traffic to a peer outside Kubernetes. The peer was an Ubuntu VM with strongSwan in the VCN of the cluster, on the VLAN where MetalLB announces the tunnel address, with dummy interfaces for the same two remote networks, and no policy was added for it. The tenant admin set `peer.address` in the application and read the address and the key as a tenant, and the remote side was configured with them. The tunnel was up about 30 seconds later and the operator reported `Ready`. Cilium on the node of the gateway logged the first packet of a new flow from the peer as identity `world`, admitted on UDP 4500 by the rule of the operator, and a flow to a port of the tunnel address that is not published was dropped at the load balancer. Both ways, for both networks: ping at about 1 ms with no loss, the source of the remote network kept. Throughput with a 1 OCPU peer: remote to tenant 670 Mbit/s with one stream and 635 with four, tenant to remote 570 Mbit/s, 727 from the second network, UDP at 300 Mbit/s with 0.3% loss towards the tenant and 0.04% towards the remote side. Two pods of the tenant on the same network reach 1.56 Gbit/s.
@@ -412,29 +412,32 @@ Known limits:
 
 ## Releases and versions
 
-The unit of a release is the catalog, as the design of the marketplace has it: a catalog is one OCI artifact that bundles all its applications, and the artifact carries the version. `free/site-router` is a catalog that holds one application at present, so a release of the catalog is a release of this application. Everything in its `packages/` (the operator, the connector, the application and its definition) is one artifact with one version. An administrator taps the catalog and gets all of it, and there is no way to take the application without the operator. A catalog could hold more applications, as more `PackageSource` files, and they would share its version. The name and the place of the directory are provisional: moving it changes the reference that is tapped and the tag prefix, and does not change the name `aenix.site-router` the cluster sees.
+The unit of a release is a catalog, as the design of the marketplace has it: one OCI artifact that bundles all its applications, and the artifact carries the version. This repository has two catalogs, one for each section, `free` and `contrib`, and each is released as one artifact with every application of its section in it. An application of its own is not released. An administrator taps a catalog and gets all of it, and there is no way to take one application without the others, or this application without its operator. This is how it is agreed for now, and it may change.
 
-- A release is a tag `site-router/vMAJOR.MINOR.PATCH` (a suffix such as `-rc.1` is allowed), and the artifact is `ghcr.io/aenix-io/cozyapps/site-router:vMAJOR.MINOR.PATCH`. Another catalog in the repository has its own directory, its own workflow and its own tag prefix, so tags do not collide and the catalogs are released independently.
-- The version of the catalog is its own. It does not follow the version of the operator, which is 0.1.1 at present, or the version of the application chart, which is 0.1.0. It changes whenever anything in `packages/` changes: a patch for a fix in a chart or a text, a minor for a new version of the operator or new values, a major for a change that needs an administrator to act, such as a renamed value.
-- What a version contains is pinned inside it: the chart of the operator is a copy of the release (`packages/system/site-router-operator/Chart.yaml`), the images of the appliance are pinned by digest in `values-cozystack.yaml`, the image of the connector by tag in its `values.yaml`, and the copy of `cozy-lib` is a copy of `v1.7.0-rc.1` of Cozystack. A cluster that taps `v0.1.0` gets exactly those, whatever is released later.
+- A release is a tag `free/vMAJOR.MINOR.PATCH` or `contrib/vMAJOR.MINOR.PATCH` (a suffix such as `-rc.1` is allowed), and the artifact is `ghcr.io/aenix-io/cozyapps/free:vMAJOR.MINOR.PATCH` or `ghcr.io/aenix-io/cozyapps/contrib:vMAJOR.MINOR.PATCH`. The two catalogs have their own versions and are released independently. `contrib` has no application yet, and its tag cannot be released until it has one.
+- The artifact is made from the `packages/` of every application of the section, merged into one tree by `hack/stage-section.sh`. A file that two applications both carry, as they may carry the copy of `cozy-lib`, has to be the same in both, and a difference stops the release.
+- The version of a catalog is its own. It does not follow the version of the operator, which is 0.1.1 at present, or the version of the chart of this application, which is 0.1.0. It changes whenever anything in a `packages/` of the section changes: a patch for a fix in a chart or a text, a minor for a new application, a new version of the operator or new values, a major for a change that needs an administrator to act, such as a renamed value.
+- What a version contains is pinned inside it: the chart of the operator is a copy of the release (`packages/system/site-router-operator/Chart.yaml`), the images of the appliance are pinned by digest in `values-cozystack.yaml`, the image of the connector by tag in its `values.yaml`, and the copy of `cozy-lib` is a copy of `v1.7.0-rc.1` of Cozystack. A cluster that taps `free/v0.1.0` gets exactly those, whatever is released later.
 - The workflow pushes the artifact, then signs its digest with cosign, keyless, as the workflow. The signature is made for the digest, because a tag can be moved, so tags of a release are not moved. Tap does not verify signatures. To verify one:
 
 ```bash
-cosign verify ghcr.io/aenix-io/cozyapps/site-router@<digest> \
+cosign verify ghcr.io/aenix-io/cozyapps/free@<digest> \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github.com/aenix-io/cozyapps/\.github/workflows/site-router\.yml@refs/tags/site-router/v'
+  --certificate-identity-regexp '^https://github.com/aenix-io/cozyapps/\.github/workflows/catalog\.yml@refs/tags/(free|contrib)/v'
 ```
 
-To make a release: change what has to change in a branch, run `make validate render` here, merge it, and push the tag on `main`:
+To make a release: change what has to change in a branch, run `make validate render` in the directory of each application that changed, merge it, and push the tag on `main`:
 
 ```bash
-git tag --sign site-router/v0.1.1 --message 'site-router v0.1.1'
-git push origin site-router/v0.1.1
+git tag --sign free/v0.1.1 --message 'free v0.1.1'
+git push origin free/v0.1.1
 ```
 
-The tag starts the workflow. It validates, pushes and signs. Then tap the new tag on a test cluster before telling anyone about it.
+The tag starts the workflow. It validates, stages, pushes and signs. Then tap the new tag on a test cluster before telling anyone about it.
 
-## Working on the catalog
+## Working on the application
+
+The layout of this directory, `free/site-router/`:
 
 ```text
 packages/
@@ -459,8 +462,8 @@ The platform gives every release of a package its cluster values, and the schema
 
 ### The copy of cozy-lib
 
-`packages/library/cozy-lib` is an exact copy of `packages/library/cozy-lib` of the platform at the tag `v1.7.0-rc.1` (commit `38d6ac7efb8a568f492b2e6e28c3a9d81df3286b` of cozystack). A catalog can use a library only from its own artifact, and the application chart uses this one for the roles of the tenants on the dashboard resource map. Nothing keeps the copy up to date. It has no version of its own, and it reads values by names that the platform may change, so when the platform moves, compare it with the copy before the next release of this catalog.
+`packages/library/cozy-lib` is an exact copy of `packages/library/cozy-lib` of the platform at the tag `v1.7.0-rc.1` (commit `38d6ac7efb8a568f492b2e6e28c3a9d81df3286b` of cozystack). A catalog can use a library only from its own artifact, so every application of the catalog that needs it carries the same copy, and the application chart uses this one for the roles of the tenants on the dashboard resource map. Nothing keeps the copy up to date. It has no version of its own, and it reads values by names that the platform may change, so when the platform moves, compare it with the copy before the next release of the catalog.
 
 ### Checks on a pull request
 
-The workflow `site-router` runs `make validate` and `make render` on every pull request that changes this directory, with the `cozypkg` of the Cozystack release the catalog is written for (`COZYPKG_VERSION` in the workflow). The `cozystack.*` names in `dependsOn` are reported as information only, because the validator cannot see the platform: a wrong name there is not caught until a cluster installs it.
+The workflow `catalog` runs `make validate` and `make render` for every application that has a Makefile, then stages each section and validates the artifact it would make, on every pull request that changes a section, with the `cozypkg` of the Cozystack release the catalogs are written for (`COZYPKG_VERSION` in the workflow). The `cozystack.*` names in `dependsOn` are reported as information only, because the validator cannot see the platform: a wrong name there is not caught until a cluster installs it.

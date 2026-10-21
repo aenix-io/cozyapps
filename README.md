@@ -10,8 +10,8 @@ The repository follows the component split a Linux distribution uses. **What dec
 
 | Section | What is in it | What it means for you |
 | --- | --- | --- |
-| [`free/`](free/) | Apache-2.0 catalogs whose applications are open source throughout | install and run it, no strings |
-| [`contrib/`](contrib/) | Apache-2.0 catalogs whose applications are licensed by their vendors | you may need your own entitlement from that vendor |
+| [`free/`](free/) | The catalog of Apache-2.0 applications that are open source throughout | install and run it, no strings |
+| [`contrib/`](contrib/) | The catalog of Apache-2.0 applications that are licensed by their vendors | you may need your own entitlement from that vendor |
 
 There is deliberately no `non-free` section. Debian has one because it redistributes non-free binaries; this repository never stores or redistributes vendor software at all, so the section could only ever be empty. If that principle is ever revisited, it will be a decision made in the open, not a directory quietly filling up.
 
@@ -27,7 +27,14 @@ A CNCF project's dependencies must clear the foundation's licensing policy, and 
 
 ## Using a catalog
 
-Each catalog registers with a Cozystack installation as an external application source; its applications then appear alongside the built-in ones. Nothing changes in Cozystack itself, and removing the catalog removes the applications.
+Each section is one catalog, released as one OCI artifact with every application of the section in it. A catalog registers with a Cozystack installation as an external application source; its applications then appear alongside the built-in ones. Nothing changes in Cozystack itself, and removing the catalog removes the applications.
+
+```bash
+cozypkg tap oci://ghcr.io/aenix-io/cozyapps/free:<version>      # open source throughout
+cozypkg tap oci://ghcr.io/aenix-io/cozyapps/contrib:<version>   # licensed by their vendors
+```
+
+A catalog is released by a tag `free/vMAJOR.MINOR.PATCH` or `contrib/vMAJOR.MINOR.PATCH`, and its version is the version of everything in it. This is how the releases are set up for now.
 
 Where the platform already satisfies a dependency with a free default, a catalog here may add an alternative rather than replace it. The operator chooses; the default stays free.
 
