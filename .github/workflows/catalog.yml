@@ -1,23 +1,27 @@
-name: site-router
+name: catalog
 
-# A change to the catalog is validated and rendered. A tag site-router/vX.Y.Z
-# publishes the catalog as an OCI artifact and signs it.
+# A change is validated: each application is validated and rendered, and each section is
+# staged and validated as the artifact it would make. A tag free/vX.Y.Z or contrib/vX.Y.Z
+# publishes that section, every application of it, as one OCI artifact and signs it.
 on:
   pull_request:
     paths:
-      - "free/site-router/**"
-      - ".github/workflows/site-router.yml"
+      - "free/**"
+      - "contrib/**"
+      - "hack/**"
+      - ".github/workflows/catalog.yml"
   push:
     tags:
-      - "site-router/v*"
+      - "free/v*"
+      - "contrib/v*"
 
 permissions: {}
 
 env:
-  # The cozypkg of the Cozystack release the catalog is written for.
+  # The cozypkg of the Cozystack release the catalogs are written for.
   COZYPKG_VERSION: v1.7.0-rc.1
   HELM_VERSION: v4.3.0
-  ARTIFACT: ghcr.io/aenix-io/cozyapps/site-router
+  REGISTRY: ghcr.io/aenix-io/cozyapps
 
 jobs:
   validate:
@@ -49,14 +53,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Validate the repository
-        run: make -C free/site-router validate
+      # An application that has a Makefile says how it is checked with the targets
+      # validate and render.
+      - name: Validate and render each application
+        run: |
+          for makefile in free/*/Makefile contrib/*/Makefile; do
+            [ -f "$makefile" ] || continue
+            make -C "$(dirname "$makefile")" validate render
+          done
 
-      - name: Render the charts
-        run: make -C free/site-router render
+      - name: Stage and validate each catalog
+        run: |
+          for section in free contrib; do
+            stage=$(mktemp -d)/stage
+            rc=0
+            hack/stage-section.sh "$section" "$stage" || rc=$?
+            case "$rc" in
+              0) cozypkg validate "$stage" ;;
+              3) echo "$section has no application yet" ;;
+              *) exit "$rc" ;;
+            esac
+          done
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/site-router/v')
+    if: startsWith(github.ref, 'refs/tags/free/v') || startsWith(github.ref, 'refs/tags/contrib/v')
     needs: validate
     permissions:
       contents: read
@@ -67,16 +87,18 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     steps:
-      - name: Take the version from the tag
-        id: version
+      - name: Take the catalog and the version from the tag
+        id: tag
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          version=${TAG#site-router/}
+          section=${TAG%%/*}
+          version=${TAG#*/}
           if ! [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::$TAG is not a release tag: site-router/vMAJOR.MINOR.PATCH[-PRERELEASE]"
+            echo "::error::$TAG is not a release tag: free/vMAJOR.MINOR.PATCH[-PRERELEASE] or contrib/vMAJOR.MINOR.PATCH[-PRERELEASE]"
             exit 1
           fi
+          echo "section=$section" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Clone the code
@@ -112,11 +134,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Stage the catalog
+        id: stage
+        env:
+          SECTION: ${{ steps.tag.outputs.section }}
+        run: |
+          stage=$(mktemp -d)/stage
+          hack/stage-section.sh "$SECTION" "$stage"
+          echo "path=$stage" >> "$GITHUB_OUTPUT"
+
       - name: Push the catalog
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          SECTION: ${{ steps.tag.outputs.section }}
+          VERSION: ${{ steps.tag.outputs.version }}
+          STAGE: ${{ steps.stage.outputs.path }}
         run: |
-          cozypkg push "oci://${ARTIFACT}:${VERSION}" --path free/site-router \
+          cozypkg push "oci://${REGISTRY}/${SECTION}:${VERSION}" --path "$STAGE" \
             --source "https://github.com/${GITHUB_REPOSITORY}" \
             --revision "${GITHUB_REF_NAME}@sha1:${GITHUB_SHA}"
 
@@ -125,7 +158,8 @@ jobs:
       # for: tags of a release are not moved.
       - name: Sign the artifact
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          SECTION: ${{ steps.tag.outputs.section }}
+          VERSION: ${{ steps.tag.outputs.version }}
         run: |
-          digest=$(crane digest "${ARTIFACT}:${VERSION}")
-          cosign sign --yes "${ARTIFACT}@${digest}"
+          digest=$(crane digest "${REGISTRY}/${SECTION}:${VERSION}")
+          cosign sign --yes "${REGISTRY}/${SECTION}@${digest}"
