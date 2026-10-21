@@ -1,0 +1,17 @@
+apiVersion: cozystack.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: site-router
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: 1
+  minReplicas: 1
+  kind: site-router
+  type: site-router
+  # The pod template of the gateway carries this label, which the operator puts on it.
+  selector:
+    siterouter.aenix.io/instance: {{ include "site-router.name" . }}
+  version: {{ .Chart.Version }}

@@ -1,0 +1,18 @@
+peer:
+  address: 203.0.113.10
+remoteCIDRs:
+  - 192.0.2.0/24
+  - 198.51.100.0/24
+staticRoutes:
+  - destination: 10.99.0.0/16
+    nextHop: 192.0.2.254
+bgp:
+  enabled: true
+  localASN: 65001
+  neighbors:
+    - address: 192.0.2.1
+      remoteASN: 65002
+resources:
+  cpu: 2
+  memory: 2Gi
+storageClass: replicated

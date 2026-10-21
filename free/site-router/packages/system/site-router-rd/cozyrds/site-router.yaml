@@ -1,0 +1,40 @@
+apiVersion: cozystack.io/v1alpha1
+kind: ApplicationDefinition
+metadata:
+  name: site-router
+spec:
+  application:
+    kind: SiteRouter
+    singular: siterouter
+    plural: siterouters
+    # Filled in by `make generate` from the values schema of the chart.
+    openAPISchema: |-
+      {"title":"Chart Values","type":"object","properties":{"peer":{"description":"The remote end of the tunnel.","type":"object","default":{},"required":["address"],"properties":{"address":{"description":"IP address or DNS name of the remote end. Leave it empty while it is not known, for example when the remote side is to call first.","type":"string","default":""}}},"remoteCIDRs":{"description":"IPv4 networks behind the remote end. Traffic to them is routed to the gateway, and traffic from them is let through to the workloads of the tenant. A network that no remote site can have, or that overlaps a network of the cluster, is refused.","type":"array","default":[],"items":{"type":"string"}},"staticRoutes":{"description":"Routes inside the gateway.","type":"array","default":[],"items":{"type":"object","required":["destination","nextHop"],"properties":{"destination":{"description":"The network the route leads to, an IPv4 CIDR.","type":"string"},"nextHop":{"description":"Where traffic for the destination is sent, an IPv4 address.","type":"string"}}}},"bgp":{"description":"BGP between the gateway and the remote site.","type":"object","default":{},"required":["enabled"],"properties":{"enabled":{"description":"Turns BGP on.","type":"boolean","default":false},"localASN":{"description":"The autonomous system number of the gateway. Required when BGP is on.","type":"integer"},"neighbors":{"description":"The BGP peers of the gateway.","type":"array","items":{"type":"object","required":["address","remoteASN"],"properties":{"address":{"description":"The IPv4 address of the peer.","type":"string"},"remoteASN":{"description":"The autonomous system number of the peer.","type":"integer"}}}}}},"resources":{"description":"CPU and memory of the gateway VM.","type":"object","default":{},"required":["cpu","memory"],"properties":{"cpu":{"description":"The number of virtual CPUs.","type":"integer","default":2},"memory":{"description":"The amount of memory.","default":"2Gi","pattern":"^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$","anyOf":[{"type":"integer"},{"type":"string"}],"x-kubernetes-int-or-string":true}}},"storageClass":{"description":"StorageClass of the gateway disk. When empty, the default class of the cluster is used.","type":"string","default":"","x-kubernetes-validations":[{"rule":"self == oldSelf","message":"storageClass is immutable"}],"x-cozystack-options":{"source":"storageclass"}}}}
+  release:
+    prefix: site-router-
+    chartRef:
+      kind: ExternalArtifact
+      name: aenix-site-router-default-site-router
+      namespace: cozy-system
+  # What the tenant sees of the gateway: the pre-shared key and the Service of the
+  # tunnel, whose address is what the remote end connects to. The operator names
+  # them after the application.
+  secrets:
+    include:
+      - resourceNames:
+          - site-router-{{ .name }}-psk
+  services:
+    include:
+      - resourceNames:
+          - site-router-{{ .name }}-tunnel
+  dashboard:
+    singular: Site Router
+    plural: Site Routers
+    category: NaaS
+    description: Routed site-to-site IPsec gateway
+    tags:
+      - vpn
+      - ipsec
+      - networking
+    # Filled in by `make generate` from the values of the chart.
+    keysOrder: [["apiVersion"], ["appVersion"], ["kind"], ["metadata"], ["metadata", "name"], ["spec", "peer"], ["spec", "peer", "address"], ["spec", "remoteCIDRs"], ["spec", "staticRoutes"], ["spec", "bgp"], ["spec", "bgp", "enabled"], ["spec", "resources"], ["spec", "resources", "cpu"], ["spec", "resources", "memory"], ["spec", "storageClass"]]

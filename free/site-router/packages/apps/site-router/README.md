@@ -1,0 +1,29 @@
+# Site-to-site IPsec gateway
+
+A gateway that connects the workloads of a tenant to a remote site over IPsec and routes between them. The gateway is a virtual machine that the site-router operator runs, and the application is the name and the settings of it.
+
+Once the gateway is up, the application shows the address of the tunnel and the pre-shared key. Configure the remote end with them, and the tunnel comes up.
+
+## Parameters
+
+### Common parameters
+
+| Name                          | Description                                                                                                                                                                                                                                        | Type       | Value   |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------- |
+| `peer`                        | The remote end of the tunnel.                                                                                                                                                                                                                      | `object`   | `{}`    |
+| `peer.address`                | IP address or DNS name of the remote end. Leave it empty while it is not known, for example when the remote side is to call first.                                                                                                                 | `string`   | `""`    |
+| `remoteCIDRs`                 | IPv4 networks behind the remote end. Traffic to them is routed to the gateway, and traffic from them is let through to the workloads of the tenant. A network that no remote site can have, or that overlaps a network of the cluster, is refused. | `[]string` | `[]`    |
+| `staticRoutes`                | Routes inside the gateway.                                                                                                                                                                                                                         | `[]object` | `[]`    |
+| `staticRoutes[i].destination` | The network the route leads to, an IPv4 CIDR.                                                                                                                                                                                                      | `string`   | `""`    |
+| `staticRoutes[i].nextHop`     | Where traffic for the destination is sent, an IPv4 address.                                                                                                                                                                                        | `string`   | `""`    |
+| `bgp`                         | BGP between the gateway and the remote site.                                                                                                                                                                                                       | `object`   | `{}`    |
+| `bgp.enabled`                 | Turns BGP on.                                                                                                                                                                                                                                      | `bool`     | `false` |
+| `bgp.localASN`                | The autonomous system number of the gateway. Required when BGP is on.                                                                                                                                                                              | `int`      | `0`     |
+| `bgp.neighbors`               | The BGP peers of the gateway.                                                                                                                                                                                                                      | `[]object` | `[]`    |
+| `bgp.neighbors[i].address`    | The IPv4 address of the peer.                                                                                                                                                                                                                      | `string`   | `""`    |
+| `bgp.neighbors[i].remoteASN`  | The autonomous system number of the peer.                                                                                                                                                                                                          | `int`      | `0`     |
+| `resources`                   | CPU and memory of the gateway VM.                                                                                                                                                                                                                  | `object`   | `{}`    |
+| `resources.cpu`               | The number of virtual CPUs.                                                                                                                                                                                                                        | `int`      | `2`     |
+| `resources.memory`            | The amount of memory.                                                                                                                                                                                                                              | `quantity` | `2Gi`   |
+| `storageClass`                | StorageClass of the gateway disk. When empty, the default class of the cluster is used.                                                                                                                                                            | `string`   | `""`    |
+

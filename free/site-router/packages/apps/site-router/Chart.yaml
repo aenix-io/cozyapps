@@ -1,0 +1,9 @@
+apiVersion: v2
+name: site-router
+description: Routed site-to-site IPsec gateway to a remote site
+type: application
+# The version of the chart, which moves with the catalog.
+version: 0.1.0
+# The version of the operator that runs the gateway, which the chart of
+# system/site-router-operator pins.
+appVersion: "0.1.1"

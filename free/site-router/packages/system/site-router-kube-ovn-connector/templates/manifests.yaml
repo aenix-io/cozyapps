@@ -1,0 +1,304 @@
+# Made by 'make update' from github.com/aenix-io/site-router-operator/connectors/kube-ovn/deploy at v0.1.1, without the Namespace.
+# Edit the Makefile and run it again, not this file.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-ovn-connector
+    app.kubernetes.io/part-of: site-router-operator
+  name: kube-ovn-connector
+  namespace: site-router-kube-ovn-connector
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-ovn-connector
+    app.kubernetes.io/part-of: site-router-operator
+  name: kube-ovn-connector-leader-election
+  namespace: site-router-kube-ovn-connector
+rules:
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-ovn-connector
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+      - pods
+    verbs:
+      - list
+      - patch
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - kubevirt.io
+    resources:
+      - virtualmachineinstances
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - siterouter.aenix.io
+    resources:
+      - forwarders
+    verbs:
+      - list
+      - patch
+      - watch
+  - apiGroups:
+      - siterouter.aenix.io
+    resources:
+      - forwarders/finalizers
+      - forwarders/status
+    verbs:
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-ovn-connector
+    app.kubernetes.io/part-of: site-router-operator
+  name: kube-ovn-connector-metrics-auth
+rules:
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-ovn-connector
+    app.kubernetes.io/part-of: site-router-operator
+  name: kube-ovn-connector-metrics-reader
+rules:
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-ovn-connector
+    app.kubernetes.io/part-of: site-router-operator
+  name: kube-ovn-connector-leader-election
+  namespace: site-router-kube-ovn-connector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kube-ovn-connector-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: kube-ovn-connector
+    namespace: site-router-kube-ovn-connector
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-ovn-connector
+    app.kubernetes.io/part-of: site-router-operator
+  name: kube-ovn-connector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-ovn-connector
+subjects:
+  - kind: ServiceAccount
+    name: kube-ovn-connector
+    namespace: site-router-kube-ovn-connector
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-ovn-connector
+    app.kubernetes.io/part-of: site-router-operator
+  name: kube-ovn-connector-metrics-auth
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-ovn-connector-metrics-auth
+subjects:
+  - kind: ServiceAccount
+    name: kube-ovn-connector
+    namespace: site-router-kube-ovn-connector
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-ovn-connector
+    app.kubernetes.io/part-of: site-router-operator
+  name: kube-ovn-connector-metrics
+  namespace: site-router-kube-ovn-connector
+spec:
+  ports:
+    - name: https
+      port: 8443
+      protocol: TCP
+      targetPort: metrics
+  selector:
+    app.kubernetes.io/name: kube-ovn-connector
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-ovn-connector
+    app.kubernetes.io/part-of: site-router-operator
+  name: kube-ovn-connector
+  namespace: site-router-kube-ovn-connector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-ovn-connector
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: connector
+      labels:
+        app.kubernetes.io/name: kube-ovn-connector
+        app.kubernetes.io/part-of: site-router-operator
+    spec:
+      containers:
+        - args:
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+            - --metrics-bind-address=:8443
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          name: connector
+          ports:
+            - containerPort: 8443
+              name: metrics
+              protocol: TCP
+            - containerPort: 8081
+              name: health
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 512Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+      securityContext:
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: kube-ovn-connector
+      terminationGracePeriodSeconds: 10
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-ovn-connector
+    app.kubernetes.io/part-of: site-router-operator
+  name: kube-ovn-connector-writes
+spec:
+  failurePolicy: Fail
+  matchConditions:
+    - expression: request.userInfo.username == "system:serviceaccount:site-router-kube-ovn-connector:kube-ovn-connector"
+      name: by-the-connector
+  matchConstraints:
+    resourceRules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - UPDATE
+        resources:
+          - pods
+          - namespaces
+  validations:
+    - expression: variables.after.all(k, k in variables.own || (k in variables.before && variables.before[k] == variables.after[k])) && variables.before.all(k, k in variables.own || k in variables.after)
+      message: the connector changes no annotation but its own
+    - expression: '(has(object.metadata.labels) ? object.metadata.labels : {}) == (has(oldObject.metadata.labels) ? oldObject.metadata.labels : {}) && (has(object.metadata.ownerReferences) ? object.metadata.ownerReferences : []) == (has(oldObject.metadata.ownerReferences) ? oldObject.metadata.ownerReferences : []) && (has(object.metadata.finalizers) ? object.metadata.finalizers : []) == (has(oldObject.metadata.finalizers) ? oldObject.metadata.finalizers : []) && object.spec == oldObject.spec'
+      message: the connector changes nothing of a pod or a Namespace but annotations
+  variables:
+    - expression: |-
+        request.resource.resource == "pods"
+
+          ? ["ovn.kubernetes.io/port_security", "kube-ovn.siterouter.aenix.io/granted-by"]
+          : ["ovn.kubernetes.io/routes", "kube-ovn.siterouter.aenix.io/route-owners"]
+      name: own
+    - expression: 'has(oldObject.metadata.annotations) ? oldObject.metadata.annotations : {}'
+      name: before
+    - expression: 'has(object.metadata.annotations) ? object.metadata.annotations : {}'
+      name: after
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-ovn-connector
+    app.kubernetes.io/part-of: site-router-operator
+  name: kube-ovn-connector-writes
+spec:
+  policyName: kube-ovn-connector-writes
+  validationActions:
+    - Deny
