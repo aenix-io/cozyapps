@@ -4,10 +4,12 @@
 
 ## @typedef {struct} Peer - The remote end of the tunnel.
 ## @field {string} address - IP address or DNS name of the remote end. Leave it empty while it is not known, for example when the remote side is to call first.
+## @field {string} [psk] - Your pre-shared key. Empty or omitted uses an operator-generated key. A supplied key is visible to everyone who can read this application, including the view role.
 
 ## @param {Peer} peer - The remote end of the tunnel.
 peer:
   address: ""
+  psk: ""
 
 ## @param {[]string} remoteCIDRs - IPv4 networks behind the remote end. Traffic to them is routed to the gateway, and traffic from them is let through to the workloads of the tenant. A network that no remote site can have, or that overlaps a network of the cluster, is refused.
 remoteCIDRs: []

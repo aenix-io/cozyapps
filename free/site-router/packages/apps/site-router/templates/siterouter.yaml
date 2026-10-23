@@ -10,7 +10,13 @@ spec:
   peer:
     {{- with .Values.peer.address }}
     address: {{ . | quote }}
-    {{- else }}
+    {{- end }}
+    {{- if .Values.peer.psk }}
+    auth:
+      secretRef:
+        name: site-router-{{ include "site-router.name" . }}-psk-custom
+    {{- end }}
+    {{- if not (or .Values.peer.address .Values.peer.psk) }}
     {}
     {{- end }}
   {{- with .Values.remoteCIDRs }}

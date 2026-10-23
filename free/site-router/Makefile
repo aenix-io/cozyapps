@@ -28,6 +28,7 @@ render: ## Render the three charts with the example values, which checks them ag
 	helm template site-router-a $(CHART) --namespace tenant-acme --values ci/app-values.yaml >/dev/null; \
 		status=$$?; rm -r $(CHART)/charts; exit $$status
 	@echo "the three charts render"
+	bash hack/test-psk.sh
 
 .PHONY: update-operator update-connector
 update-operator: ## Take the released chart of the operator that the Makefile of its directory names.
