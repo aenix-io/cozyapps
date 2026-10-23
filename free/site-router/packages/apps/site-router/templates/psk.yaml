@@ -1,0 +1,14 @@
+{{- if .Values.peer.psk }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: site-router-{{ include "site-router.name" . }}-psk-custom
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: site-router
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+type: Opaque
+data:
+  psk: {{ .Values.peer.psk | b64enc | quote }}
+{{- end }}

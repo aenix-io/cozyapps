@@ -36,6 +36,7 @@ export SCHEMA_JSON_MIN KEYS_ORDER
 yq -i '
   .spec.application.openAPISchema = strenv(SCHEMA_JSON_MIN) |
   (.spec.application.openAPISchema style="literal") |
+  .spec.secrets.include[0].resourceNames = ["site-router-{{ .name }}-psk", "site-router-{{ .name }}-psk-custom"] |
   .spec.dashboard.keysOrder = (strenv(KEYS_ORDER) | from_json)
 ' "$OUT"
 echo "updated $OUT"
